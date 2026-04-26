@@ -1,618 +1,645 @@
-import { useState, useEffect } from "react";
-
-const styles = `
-  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300&family=DM+Sans:wght@300;400;500;600&display=swap');
-
+import { useState, useEffect, useRef } from "react";
+ 
+// ─── Mock user database ────────────────────────────────────────────────────
+const USERS = [
+  { id: 1, username: "admin", password: "admin123", role: "Admin", avatar: "A" },
+  { id: 2, username: "teacher", password: "teach123", role: "Teacher", avatar: "T" },
+  { id: 3, username: "student", password: "student1", role: "Student", avatar: "S" },
+];
+ 
+const INITIAL_NOTICES = [
+  {
+    id: 1, title: "Annual Sports Day", category: "Events",
+    body: "Annual Sports Day will be held on May 10th. All students must register by May 5th. Participation is mandatory for all classes.",
+    author: "Admin", date: "Apr 25, 2026", pinned: true, color: "#f97316",
+  },
+  {
+    id: 2, title: "Library Closed – Maintenance", category: "Announcement",
+    body: "The library will remain closed from April 28–30 for annual maintenance. Digital resources remain accessible via the portal.",
+    author: "Admin", date: "Apr 24, 2026", pinned: false, color: "#3b82f6",
+  },
+  {
+    id: 3, title: "Mid-Term Exam Schedule", category: "Academics",
+    body: "Mid-term examinations begin May 15th. Timetables are available on the portal. Students are advised to begin preparation immediately.",
+    author: "Teacher", date: "Apr 23, 2026", pinned: true, color: "#8b5cf6",
+  },
+  {
+    id: 4, title: "New Cafeteria Menu", category: "General",
+    body: "Starting May 1st, the cafeteria will offer an expanded menu with healthy options. Feedback forms available at the counter.",
+    author: "Admin", date: "Apr 22, 2026", pinned: false, color: "#10b981",
+  },
+];
+ 
+const CATEGORIES = ["All", "Events", "Announcement", "Academics", "General"];
+ 
+// ─── Styles ────────────────────────────────────────────────────────────────
+const css = `
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+ 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
+ 
   :root {
-    --rose:    #ff6b8a;
-    --peach:   #ff9966;
-    --amber:   #ffbc42;
-    --lime:    #7ecf6a;
-    --teal:    #38c9b0;
-    --sky:     #56b4f5;
-    --violet:  #9b7ff4;
-    --pink:    #f472c8;
-    --navy:    #1a1a2e;
+    --bg: #0f0e17;
+    --surface: #1a1929;
+    --surface2: #221f35;
+    --border: rgba(255,255,255,0.07);
+    --text: #fffffe;
+    --muted: #a7a5c0;
+    --accent: #ff6b35;
+    --accent2: #e53170;
+    --gold: #f4c842;
   }
-
-  body {
-    font-family: 'DM Sans', sans-serif;
-    background: #fafaf8;
-    color: #1a1a1a;
+ 
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+ 
+  /* ── Login ── */
+  .login-wrap {
     min-height: 100vh;
+    display: grid;
+    place-items: center;
+    background: radial-gradient(ellipse at 60% 40%, #1e1040 0%, #0f0e17 70%);
+    position: relative;
+    overflow: hidden;
   }
-
-  .app { min-height: 100vh; display: flex; flex-direction: column; }
-
-  /* NAV */
-  .nav {
-    position: sticky; top: 0; z-index: 100;
-    background: var(--navy);
-    padding: 0 48px; height: 64px;
-    display: flex; align-items: center; justify-content: space-between;
-    box-shadow: 0 2px 24px rgba(26,26,46,0.22);
-  }
-  .nav-brand { display: flex; align-items: center; gap: 10px; }
-  .nav-logo {
-    width: 34px; height: 34px;
-    background: linear-gradient(135deg, var(--rose), var(--violet));
-    border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 2px 10px rgba(155,127,244,0.45);
-  }
-  .nav-logo svg { width: 16px; height: 16px; fill: #fff; }
-  .nav-wordmark {
-    font-family: 'Fraunces', serif; font-size: 19px; font-weight: 600;
-    color: #fff; letter-spacing: -0.3px;
-  }
-  .nav-links { display: flex; gap: 4px; list-style: none; }
-  .nav-link {
-    padding: 6px 16px; border-radius: 8px; font-size: 14px; font-weight: 400;
-    color: rgba(255,255,255,0.5); cursor: pointer; border: none; background: none;
-    font-family: 'DM Sans', sans-serif; transition: background 0.15s, color 0.15s;
-  }
-  .nav-link:hover { background: rgba(255,255,255,0.08); color: #fff; }
-  .nav-link.active {
-    background: linear-gradient(135deg, var(--rose), var(--violet));
-    color: #fff; font-weight: 500;
-    box-shadow: 0 2px 12px rgba(155,127,244,0.4);
-  }
-  .nav-badge {
-    background: var(--amber); color: var(--navy);
-    font-size: 11px; font-weight: 700;
-    padding: 3px 11px; border-radius: 100px;
-    font-family: 'DM Sans', sans-serif;
-  }
-
-  /* HERO BANNER */
-  .hero-banner {
-    background: linear-gradient(135deg, #1a1a2e 0%, #2d1b5e 55%, #1a2a3e 100%);
-    padding: 56px 48px 64px;
-    position: relative; overflow: hidden;
-  }
-  .hero-banner::before {
+  .login-wrap::before {
     content: '';
-    position: absolute; inset: 0;
-    background:
-      radial-gradient(ellipse 60% 80% at 80% 50%, rgba(155,127,244,0.2) 0%, transparent 70%),
-      radial-gradient(ellipse 40% 60% at 10% 80%, rgba(255,107,138,0.16) 0%, transparent 60%),
-      radial-gradient(ellipse 30% 50% at 50% 0%, rgba(56,201,176,0.12) 0%, transparent 60%);
+    position: absolute;
+    width: 600px; height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,107,53,0.12) 0%, transparent 70%);
+    top: -100px; right: -100px;
     pointer-events: none;
   }
-  .hero-banner-inner {
-    max-width: 1100px; margin: 0 auto;
-    display: flex; align-items: flex-start; gap: 64px;
+  .login-wrap::after {
+    content: '';
+    position: absolute;
+    width: 500px; height: 500px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(229,49,112,0.1) 0%, transparent 70%);
+    bottom: -100px; left: -80px;
+    pointer-events: none;
+  }
+  .login-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 48px 44px;
+    width: 420px;
+    max-width: 94vw;
     position: relative;
+    z-index: 1;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.5);
+    animation: slideUp 0.5s cubic-bezier(0.22,1,0.36,1) both;
   }
-  .hero { flex: 1; min-width: 0; }
-  .hero-eyebrow {
-    display: inline-flex; align-items: center; gap: 7px;
-    font-size: 11px; font-weight: 500; letter-spacing: 0.1em;
-    text-transform: uppercase; color: rgba(255,255,255,0.5);
-    margin-bottom: 18px; background: rgba(255,255,255,0.07);
-    border: 1px solid rgba(255,255,255,0.1);
-    padding: 5px 12px; border-radius: 100px;
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(32px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
-  .hero-eyebrow-dot {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: #4ade80; animation: pulse 2s infinite;
+  .login-logo {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 8px;
   }
-  @keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50%       { opacity: 0.5; transform: scale(0.8); }
+  .login-logo-icon {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: grid; place-items: center;
+    font-size: 20px;
   }
-  .hero-heading {
-    font-family: 'Fraunces', serif;
-    font-size: clamp(34px, 4vw, 50px);
-    font-weight: 300; line-height: 1.1; letter-spacing: -1.5px; color: #fff;
-    margin-bottom: 14px;
+  .login-logo-text {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    letter-spacing: -0.5px;
   }
-  .hero-heading em {
-    font-style: italic;
-    background: linear-gradient(90deg, var(--rose), var(--violet));
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    background-clip: text;
+  .login-sub {
+    color: var(--muted);
+    font-size: 14px;
+    margin-bottom: 36px;
+    margin-top: 4px;
   }
-  .hero-subtitle {
-    font-size: 15px; line-height: 1.7;
-    color: rgba(255,255,255,0.48); max-width: 380px; font-weight: 300;
+  .login-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    display: block;
   }
-  .hero-stats {
-    display: flex; margin-top: 36px;
+  .login-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 13px 16px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s;
+    margin-bottom: 20px;
+  }
+  .login-input:focus { border-color: var(--accent); }
+  .login-btn {
+    width: 100%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none;
+    border-radius: 10px;
+    padding: 14px;
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.15s;
+    margin-top: 4px;
+  }
+  .login-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+  .login-btn:active { transform: translateY(0); }
+  .login-error {
+    background: rgba(229,49,112,0.15);
+    border: 1px solid rgba(229,49,112,0.3);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #f87171;
+    margin-bottom: 20px;
+  }
+  .login-hint {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+  .login-hint strong { color: var(--text); }
+ 
+  /* ── App Shell ── */
+  .app { display: flex; flex-direction: column; min-height: 100vh; }
+ 
+  /* ── Header ── */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    height: 64px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+    backdrop-filter: blur(12px);
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .header-logo {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 9px;
+    display: grid; place-items: center;
+    font-size: 18px;
+  }
+  .header-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 19px;
+    letter-spacing: -0.3px;
+  }
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  .user-chip {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 6px 14px 6px 8px;
+    font-size: 13px;
+  }
+  .user-avatar {
+    width: 26px; height: 26px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 12px; font-weight: 700;
+  }
+  .logout-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 14px;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .logout-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+ 
+  /* ── Main ── */
+  .main { flex: 1; padding: 32px; max-width: 1200px; margin: 0 auto; width: 100%; }
+ 
+  /* ── Toolbar ── */
+  .toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 28px; gap: 16px; flex-wrap: wrap;
+  }
+  .toolbar-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .cat-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 7px 16px;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .cat-btn.active {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-color: transparent;
+    color: #fff;
+    font-weight: 600;
+  }
+  .cat-btn:hover:not(.active) { border-color: var(--accent); color: var(--text); }
+  .add-btn {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none;
+    border-radius: 10px;
+    padding: 10px 20px;
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+    transition: opacity 0.2s, transform 0.15s;
+  }
+  .add-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+ 
+  /* ── Grid ── */
+  .notices-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+  }
+  .notice-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+    animation: fadeIn 0.4s ease both;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .notice-card:hover { transform: translateY(-3px); box-shadow: 0 16px 40px rgba(0,0,0,0.4); }
+  .notice-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 4px; height: 100%;
+    background: var(--card-color);
+  }
+  .notice-pin {
+    position: absolute; top: 16px; right: 16px;
+    font-size: 18px;
+  }
+  .notice-cat {
+    display: inline-block;
     background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 16px; overflow: hidden; max-width: 330px;
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    margin-bottom: 12px;
   }
-  .stat-item {
-    flex: 1; display: flex; flex-direction: column;
-    align-items: center; gap: 2px; padding: 16px 12px;
-    border-right: 1px solid rgba(255,255,255,0.08);
+  .notice-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    line-height: 1.3;
+    margin-bottom: 10px;
   }
-  .stat-item:last-child { border-right: none; }
-  .stat-number {
-    font-family: 'Fraunces', serif; font-size: 26px;
-    font-weight: 600; letter-spacing: -1px;
+  .notice-body {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.7;
+    margin-bottom: 18px;
   }
-  .stat-number.cr { color: var(--rose); }
-  .stat-number.ca { color: var(--amber); }
-  .stat-number.ct { color: var(--teal); }
-  .stat-label {
-    font-size: 10px; color: rgba(255,255,255,0.38);
-    text-transform: uppercase; letter-spacing: 0.08em;
+  .notice-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+    font-size: 12px;
+    color: var(--muted);
   }
-
-  /* ADD PANEL */
-  .add {
-    flex: 0 0 360px; background: #fff;
-    border-radius: 20px; padding: 26px;
-    box-shadow: 0 8px 48px rgba(0,0,0,0.28);
+  .notice-author { display: flex; align-items: center; gap: 6px; }
+  .notice-author-dot {
+    width: 20px; height: 20px;
+    background: var(--surface2);
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 9px; font-weight: 700; color: var(--muted);
   }
-  .add-header { margin-bottom: 16px; }
-  .add-title { font-size: 14px; font-weight: 600; color: #1a1a1a; margin-bottom: 3px; }
-  .add-desc  { font-size: 12px; color: #bbb; font-weight: 300; }
-  .add-textarea {
-    width: 100%; min-height: 96px; background: #f7f6f2;
-    border: 1.5px solid #ebe8e2; border-radius: 12px;
-    padding: 13px 15px; font-family: 'DM Sans', sans-serif;
-    font-size: 14px; font-weight: 300; color: #1a1a1a;
-    resize: none; outline: none; margin-bottom: 8px; line-height: 1.6;
-    transition: border-color 0.2s, box-shadow 0.2s;
+  .notice-actions { display: flex; gap: 8px; }
+  .icon-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--muted); font-size: 14px;
+    padding: 4px 6px; border-radius: 6px;
+    transition: all 0.15s;
   }
-  .add-textarea::placeholder { color: #ccc; }
-  .add-textarea:focus {
-    border-color: var(--violet);
-    box-shadow: 0 0 0 3px rgba(155,127,244,0.12); background: #fff;
+  .icon-btn:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+  .icon-btn.delete:hover { color: #f87171; }
+ 
+  /* ── Modal ── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(6px);
+    display: grid; place-items: center;
+    z-index: 200;
+    animation: fadeOverlay 0.2s ease;
   }
-  .add-input {
-    width: 100%; background: #f7f6f2;
-    border: 1.5px solid #ebe8e2; border-radius: 10px;
-    padding: 9px 14px; font-family: 'DM Sans', sans-serif;
-    font-size: 13px; color: #1a1a1a; outline: none; margin-bottom: 14px;
+  @keyframes fadeOverlay { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 40px;
+    width: 500px;
+    max-width: 96vw;
+    animation: slideUp 0.3s cubic-bezier(0.22,1,0.36,1) both;
+  }
+  .modal-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px; margin-bottom: 28px;
+  }
+  .form-row { margin-bottom: 18px; }
+  .form-label {
+    font-size: 12px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 1px;
+    color: var(--muted); display: block; margin-bottom: 8px;
+  }
+  .form-input, .form-select, .form-textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    outline: none;
     transition: border-color 0.2s;
   }
-  .add-input::placeholder { color: #ccc; }
-  .add-input:focus { border-color: var(--violet); background: #fff; }
-  .tag-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
-  .add-footer { display: flex; align-items: center; justify-content: space-between; }
-  .char-count { font-size: 12px; color: #ccc; }
-  .add-btn {
-    background: linear-gradient(135deg, var(--rose), var(--violet));
-    color: #fff; border: none; border-radius: 10px;
-    padding: 10px 20px; font-family: 'DM Sans', sans-serif;
-    font-size: 13px; font-weight: 500; cursor: pointer;
-    display: flex; align-items: center; gap: 6px;
-    box-shadow: 0 4px 14px rgba(155,127,244,0.38);
-    transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
+  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--accent); }
+  .form-textarea { resize: vertical; min-height: 100px; }
+  .form-select option { background: var(--surface2); }
+  .modal-actions { display: flex; gap: 12px; margin-top: 8px; justify-content: flex-end; }
+  .btn-ghost {
+    background: none; border: 1px solid var(--border);
+    border-radius: 10px; padding: 11px 20px;
+    color: var(--muted); font-family: 'DM Sans', sans-serif;
+    font-size: 14px; cursor: pointer; transition: all 0.2s;
   }
-  .add-btn:hover { opacity: 0.88; box-shadow: 0 6px 20px rgba(155,127,244,0.48); }
-  .add-btn:active { transform: scale(0.97); }
-  .add-btn:disabled { background: #ddd; box-shadow: none; cursor: not-allowed; }
-
-  /* MAIN */
-  .main {
-    flex: 1; max-width: 1100px; width: 100%;
-    margin: 0 auto; padding: 48px 48px 80px;
+  .btn-ghost:hover { border-color: var(--muted); color: var(--text); }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none; border-radius: 10px;
+    padding: 11px 24px;
+    color: #fff; font-family: 'DM Sans', sans-serif;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: opacity 0.2s;
   }
-
-  /* FILTER */
-  .filter-row {
-    display: flex; align-items: center; gap: 8px;
-    flex-wrap: wrap; margin-bottom: 28px;
-  }
-  .filter-label {
-    font-size: 11px; color: #bbb; text-transform: uppercase;
-    letter-spacing: 0.08em; font-weight: 500; margin-right: 2px;
-  }
-  .filter-btn {
-    padding: 5px 14px; border-radius: 100px;
-    border: 1.5px solid #e0ddd8; background: transparent;
-    font-family: 'DM Sans', sans-serif; font-size: 12px;
-    font-weight: 500; color: #999; cursor: pointer; transition: all 0.15s;
-  }
-  .filter-btn:hover { border-color: #bbb; color: #333; }
-  .filter-btn.af { color: #fff; border-color: transparent; box-shadow: 0 2px 10px rgba(0,0,0,0.15); }
-
-  /* BOARD */
-  .board-header {
-    display: flex; align-items: baseline;
-    justify-content: space-between; margin-bottom: 20px;
-  }
-  .board-title {
-    font-family: 'Fraunces', serif; font-size: 22px;
-    font-weight: 300; color: #1a1a1a; letter-spacing: -0.5px;
-  }
-  .board-count { font-size: 13px; color: #bbb; }
-  .board {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-    gap: 16px;
-  }
-
-  /* CARD */
-  .card {
-    border-radius: 18px; padding: 20px 22px;
-    display: flex; flex-direction: column; gap: 12px;
-    animation: cardIn 0.32s cubic-bezier(.22,1,.36,1) both;
-    position: relative; overflow: hidden;
-    border: 1px solid rgba(0,0,0,0.06);
-    transition: transform 0.2s, box-shadow 0.2s;
-  }
-  .card::after {
-    content: '';
-    position: absolute; top: -24px; right: -24px;
-    width: 80px; height: 80px;
-    border-radius: 50%; opacity: 0.22; pointer-events: none;
-  }
-  .card:hover { transform: translateY(-3px); box-shadow: 0 10px 32px rgba(0,0,0,0.13); }
-
-  @keyframes cardIn {
-    from { opacity: 0; transform: translateY(16px) scale(0.97); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
-  }
-
-  /* Card palettes */
-  .p-rose   { background: linear-gradient(135deg, #ffe3ea 0%, #ffc8d8 100%); }
-  .p-rose::after   { background: #ff6b8a; }
-  .p-peach  { background: linear-gradient(135deg, #ffead6 0%, #ffd0ab 100%); }
-  .p-peach::after  { background: #ff9966; }
-  .p-amber  { background: linear-gradient(135deg, #fff4cc 0%, #ffe799 100%); }
-  .p-amber::after  { background: #ffbc42; }
-  .p-lime   { background: linear-gradient(135deg, #e2f9d8 0%, #c4edb3 100%); }
-  .p-lime::after   { background: #7ecf6a; }
-  .p-teal   { background: linear-gradient(135deg, #d4f7f0 0%, #a8eadf 100%); }
-  .p-teal::after   { background: #38c9b0; }
-  .p-sky    { background: linear-gradient(135deg, #daeeff 0%, #b8dcff 100%); }
-  .p-sky::after    { background: #56b4f5; }
-  .p-violet { background: linear-gradient(135deg, #eee0ff 0%, #dcc8ff 100%); }
-  .p-violet::after { background: #9b7ff4; }
-  .p-pink   { background: linear-gradient(135deg, #ffe0f5 0%, #ffc4ec 100%); }
-  .p-pink::after   { background: #f472c8; }
-
-  .card-top { display: flex; align-items: center; justify-content: space-between; }
-  .card-tag {
-    font-size: 10.5px; font-weight: 700; letter-spacing: 0.07em;
-    text-transform: uppercase; padding: 4px 10px; border-radius: 100px;
-    background: rgba(0,0,0,0.09); color: rgba(0,0,0,0.48);
-  }
-  .card-body {
-    font-size: 14px; line-height: 1.65;
-    color: rgba(0,0,0,0.72); font-weight: 400; flex: 1; word-break: break-word;
-  }
-  .card-footer {
-    display: flex; align-items: center; justify-content: space-between;
-    padding-top: 12px; border-top: 1px solid rgba(0,0,0,0.08);
-  }
-  .card-author { font-size: 12px; font-weight: 600; color: rgba(0,0,0,0.52); }
-  .card-time   { font-size: 11px; color: rgba(0,0,0,0.34); margin-top: 2px; }
-  .delete-btn {
-    background: rgba(0,0,0,0.08); border: none; border-radius: 8px;
-    width: 28px; height: 28px;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; color: rgba(0,0,0,0.32);
-    transition: background 0.15s, color 0.15s;
-  }
-  .delete-btn:hover { background: rgba(0,0,0,0.16); color: rgba(0,0,0,0.65); }
-
-  /* EMPTY */
+  .btn-primary:hover { opacity: 0.9; }
+ 
+  /* ── Empty ── */
   .empty {
-    grid-column: 1 / -1; display: flex; flex-direction: column;
-    align-items: center; padding: 72px 24px; text-align: center;
-    gap: 10px; border: 2px dashed #e0ddd8; border-radius: 20px;
+    text-align: center; padding: 80px 20px; color: var(--muted);
   }
-  .empty-icon {
-    font-size: 32px; width: 56px; height: 56px;
-    background: linear-gradient(135deg, #ede0ff, #fce7f3);
-    border-radius: 14px; display: flex; align-items: center; justify-content: center;
-    margin-bottom: 4px;
+  .empty-icon { font-size: 48px; margin-bottom: 16px; }
+  .empty h3 { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--text); margin-bottom: 8px; }
+  .empty p { font-size: 14px; }
+ 
+  /* ── Color swatches ── */
+  .color-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .color-swatch {
+    width: 28px; height: 28px; border-radius: 50%;
+    cursor: pointer; border: 3px solid transparent;
+    transition: transform 0.15s;
   }
-  .empty-title {
-    font-family: 'Fraunces', serif; font-size: 20px;
-    font-weight: 300; color: #1a1a1a; letter-spacing: -0.3px;
-  }
-  .empty-sub { font-size: 13px; color: #bbb; font-weight: 300; }
-
-  /* ABOUT */
-  .section-page { animation: cardIn 0.3s ease; }
-  .section-heading {
-    font-family: 'Fraunces', serif; font-size: 36px;
-    font-weight: 300; letter-spacing: -1px; color: #1a1a1a; margin-bottom: 14px;
-  }
-  .section-body {
-    font-size: 15px; font-weight: 300; line-height: 1.8;
-    color: #666; max-width: 560px;
-  }
-  .about-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-    gap: 16px; margin-top: 36px;
-  }
-  .about-card {
-    border-radius: 16px; padding: 22px;
-    border: 1px solid rgba(0,0,0,0.06);
-    transition: transform 0.2s, box-shadow 0.2s;
-  }
-  .about-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.09); }
-  .about-card-icon { font-size: 24px; margin-bottom: 12px; }
-  .about-card-title { font-size: 14px; font-weight: 600; color: #1a1a1a; margin-bottom: 6px; }
-  .about-card-desc  { font-size: 13px; color: rgba(0,0,0,0.52); font-weight: 300; line-height: 1.6; }
-
-  /* FOOTER */
-  .footer {
-    background: var(--navy); text-align: center;
-    padding: 20px; font-size: 12px;
-    color: rgba(255,255,255,0.22); font-weight: 300;
-  }
-
-  @media (max-width: 768px) {
-    .nav { padding: 0 20px; }
-    .hero-banner { padding: 40px 20px 48px; }
-    .hero-banner-inner { flex-direction: column; gap: 32px; }
-    .add { flex: unset; width: 100%; }
-    .main { padding: 36px 20px 60px; }
-    .board { grid-template-columns: 1fr; }
-    .hero-stats { max-width: 100%; }
-  }
+  .color-swatch.selected { border-color: #fff; transform: scale(1.15); }
 `;
-
-const TAGS = ["General","Urgent","Info","Event","Reminder","Idea","Meeting","Alert"];
-const TAG_META = {
-  General:  { color: "#9b7ff4", border: "#d4c4ff", bg: "#f0eaff" },
-  Urgent:   { color: "#e05252", border: "#f5c6c6", bg: "#fff0f0" },
-  Info:     { color: "#2e9de0", border: "#b8d8f5", bg: "#eaf4ff" },
-  Event:    { color: "#38a838", border: "#b8e0b8", bg: "#eafaea" },
-  Reminder: { color: "#d48a00", border: "#f0d890", bg: "#fffaeb" },
-  Idea:     { color: "#e07030", border: "#f5cca8", bg: "#fff3ea" },
-  Meeting:  { color: "#18a89a", border: "#a0e0d8", bg: "#eafaf8" },
-  Alert:    { color: "#d040a0", border: "#f0b0d8", bg: "#fceaf6" },
-};
-
-const PALETTES = ["p-violet","p-rose","p-sky","p-lime","p-amber","p-peach","p-teal","p-pink"];
-let palIdx = 0;
-
-const ABOUT_BG = [
-  "linear-gradient(135deg,#ede0ff,#dcc8ff)",
-  "linear-gradient(135deg,#ffe3ea,#ffc8d8)",
-  "linear-gradient(135deg,#daeeff,#b8dcff)",
-  "linear-gradient(135deg,#e2f9d8,#c4edb3)",
-];
-
-function formatTime(ts) {
-  return new Date(ts).toLocaleString("en-IN", {
-    day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit",
-  });
-}
-
-function Trash() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-      <path d="M2 4h10M5 4V2.5h4V4M5.5 6.5v4M8.5 6.5v4M3 4l.8 7.5h6.4L11 4"
-        stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
-}
-
+ 
+const COLORS = ["#f97316","#3b82f6","#8b5cf6","#10b981","#f59e0b","#ef4444","#06b6d4","#ec4899"];
+ 
 export default function App() {
-  const [page, setPage] = useState("home");
-  const [notices, setNotices] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("dnb_v2") || "[]"); }
-    catch { return []; }
-  });
-  const [text, setText] = useState("");
-  const [author, setAuthor] = useState("");
-  const [tag, setTag] = useState("General");
-  const [filter, setFilter] = useState("All");
-
-  useEffect(() => { localStorage.setItem("dnb_v2", JSON.stringify(notices)); }, [notices]);
-
-  function addNotice() {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    const palette = PALETTES[palIdx % PALETTES.length]; palIdx++;
-    setNotices(prev => [{ id: Date.now(), text: trimmed, author: author.trim() || "Anonymous", tag, palette, ts: Date.now() }, ...prev]);
-    setText(""); setAuthor(""); setTag("General");
-  }
-
-  function deleteNotice(id) { setNotices(prev => prev.filter(n => n.id !== id)); }
-  function handleKey(e) { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) addNotice(); }
-
-  const usedTags = ["All", ...Array.from(new Set(notices.map(n => n.tag)))];
-  const filtered  = filter === "All" ? notices : notices.filter(n => n.tag === filter);
-
-  function Card({ n }) {
+  const [user, setUser] = useState(null);
+  const [notices, setNotices] = useState(INITIAL_NOTICES);
+  const [category, setCategory] = useState("All");
+  const [showModal, setShowModal] = useState(false);
+  const [editNotice, setEditNotice] = useState(null);
+ 
+  // login state
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+ 
+  // new/edit form
+  const [form, setForm] = useState({ title:"", body:"", category:"Events", color: COLORS[0], pinned: false });
+ 
+  const handleLogin = () => {
+    const found = USERS.find(u => u.username === username && u.password === password);
+    if (found) { setUser(found); setLoginError(""); }
+    else setLoginError("Invalid username or password. Please try again.");
+  };
+ 
+  const handleLogout = () => { setUser(null); setUsername(""); setPassword(""); };
+ 
+  const openAdd = () => {
+    setEditNotice(null);
+    setForm({ title:"", body:"", category:"Events", color: COLORS[0], pinned: false });
+    setShowModal(true);
+  };
+ 
+  const openEdit = (n) => {
+    setEditNotice(n);
+    setForm({ title: n.title, body: n.body, category: n.category, color: n.color, pinned: n.pinned });
+    setShowModal(true);
+  };
+ 
+  const handleSave = () => {
+    if (!form.title.trim() || !form.body.trim()) return;
+    if (editNotice) {
+      setNotices(prev => prev.map(n => n.id === editNotice.id ? { ...n, ...form } : n));
+    } else {
+      const now = new Date().toLocaleDateString("en-US", { month:"short", day:"numeric", year:"numeric" });
+      setNotices(prev => [{ id: Date.now(), ...form, author: user.role, date: now }, ...prev]);
+    }
+    setShowModal(false);
+  };
+ 
+  const handleDelete = (id) => setNotices(prev => prev.filter(n => n.id !== id));
+  const togglePin = (id) => setNotices(prev => prev.map(n => n.id === id ? {...n, pinned: !n.pinned} : n));
+ 
+  const visible = notices
+    .filter(n => category === "All" || n.category === category)
+    .sort((a, b) => b.pinned - a.pinned);
+ 
+  const canEdit = user && (user.role === "Admin" || user.role === "Teacher");
+ 
+  if (!user) {
     return (
-      <div className={`card ${n.palette || "p-violet"}`} key={n.id}>
-        <div className="card-top">
-          <span className="card-tag">{n.tag}</span>
-        </div>
-        <p className="card-body">{n.text}</p>
-        <div className="card-footer">
-          <div>
-            <div className="card-author">{n.author}</div>
-            <div className="card-time">{formatTime(n.ts)}</div>
+      <>
+        <style>{css}</style>
+        <div className="login-wrap">
+          <div className="login-card">
+            <div className="login-logo">
+              <div className="login-logo-icon">📋</div>
+              <span className="login-logo-text">NoticeBoardX</span>
+            </div>
+            <p className="login-sub">Sign in to access your digital notice board</p>
+ 
+            {loginError && <div className="login-error">{loginError}</div>}
+ 
+            <label className="login-label">Username</label>
+            <input
+              className="login-input"
+              placeholder="Enter your username"
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleLogin()}
+              autoFocus
+            />
+            <label className="login-label">Password</label>
+            <input
+              className="login-input"
+              type="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleLogin()}
+            />
+            <button className="login-btn" onClick={handleLogin}>Sign In →</button>
+ 
+            <div className="login-hint">
+              <strong>Demo accounts:</strong><br/>
+              admin / admin123 &nbsp;·&nbsp; teacher / teach123 &nbsp;·&nbsp; student / student1
+            </div>
           </div>
-          <button className="delete-btn" onClick={() => deleteNotice(n.id)} title="Delete"><Trash /></button>
         </div>
-      </div>
+      </>
     );
   }
-
-  function Board({ list }) {
-    if (!list.length) return (
-      <div className="empty">
-        <div className="empty-icon">📋</div>
-        <div className="empty-title">{filter === "All" ? "No notices yet" : `No "${filter}" notices`}</div>
-        <div className="empty-sub">{filter === "All" ? "Post your first notice using the panel above" : "Try a different filter"}</div>
-      </div>
-    );
-    return list.map(n => <Card key={n.id} n={n} />);
-  }
-
-  function Filters() {
-    if (!notices.length) return null;
-    return (
-      <div className="filter-row">
-        <span className="filter-label">Filter:</span>
-        {usedTags.map(t => {
-          const active = filter === t;
-          const tm = t !== "All" ? TAG_META[t] : null;
-          return (
-            <button key={t}
-              className={`filter-btn${active ? " af" : ""}`}
-              onClick={() => setFilter(t)}
-              style={active ? { background: tm ? `linear-gradient(135deg,${tm.color}bb,${tm.color})` : "linear-gradient(135deg,#9b7ff4,#ff6b8a)" } : {}}
-            >{t}</button>
-          );
-        })}
-      </div>
-    );
-  }
-
+ 
   return (
     <>
-      <style>{styles}</style>
+      <style>{css}</style>
       <div className="app">
-
-        {/* NAV */}
-        <nav className="nav">
-          <div className="nav-brand">
-            <div className="nav-logo">
-              <svg viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="3" rx="1"/><rect x="2" y="7" width="8" height="2" rx="1"/><rect x="2" y="11" width="10" height="2" rx="1"/></svg>
-            </div>
-            <span className="nav-wordmark">Bulletin</span>
+        {/* Header */}
+        <header className="header">
+          <div className="header-left">
+            <div className="header-logo">📋</div>
+            <span className="header-title">NoticeBoardX</span>
           </div>
-          <ul className="nav-links">
-            {["home","notices","about"].map(p => (
-              <li key={p}>
-                <button className={`nav-link${page===p?" active":""}`} onClick={() => setPage(p)}>
-                  {p[0].toUpperCase()+p.slice(1)}
-                </button>
-              </li>
-            ))}
-          </ul>
-          <span className="nav-badge">{notices.length} notices</span>
-        </nav>
-
-        {/* HERO BANNER – home only */}
-        {page === "home" && (
-          <div className="hero-banner">
-            <div className="hero-banner-inner">
-              <div className="hero">
-                <div className="hero-eyebrow"><span className="hero-eyebrow-dot"/>Live Board</div>
-                <h1 className="hero-heading">Your's only<br/><em>digital</em> notice board</h1>
-                <p className="hero-subtitle">Post announcements, reminders, and updates — all in one colourful, organised space. Everything saves automatically.</p>
-                <div className="hero-stats">
-                  <div className="stat-item">
-                    <span className="stat-number cr">{notices.length}</span>
-                    <span className="stat-label">Notices</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-number ca">{notices.filter(n=>n.tag==="Urgent"||n.tag==="Alert").length}</span>
-                    <span className="stat-label">Urgent</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-number ct">{notices.length>0?new Set(notices.map(n=>n.author)).size:0}</span>
-                    <span className="stat-label">Authors</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* ADD */}
-              <div className="add">
-                <div className="add-header">
-                  <div className="add-title">Post a notice</div>
-                  <div className="add-desc">Cmd + Enter to submit quickly</div>
-                </div>
-                <textarea className="add-textarea" placeholder="Write your notice here…"
-                  value={text} onChange={e=>setText(e.target.value)} onKeyDown={handleKey} maxLength={300}/>
-                <input className="add-input" type="text" placeholder="Your name (optional)"
-                  value={author} onChange={e=>setAuthor(e.target.value)} maxLength={40}/>
-                <div className="tag-row">
-                  {TAGS.map(t => {
-                    const tm = TAG_META[t]; const sel = tag===t;
-                    return (
-                      <button key={t} onClick={()=>setTag(t)} style={{
-                        padding:"4px 11px", borderRadius:"100px",
-                        border:`1.5px solid ${sel?tm.color:tm.border}`,
-                        background: sel?tm.bg:"transparent",
-                        color: sel?tm.color:"#bbb",
-                        fontSize:"11.5px", fontFamily:"'DM Sans',sans-serif",
-                        fontWeight:600, cursor:"pointer", transition:"all 0.15s",
-                      }}>{t}</button>
-                    );
-                  })}
-                </div>
-                <div className="add-footer">
-                  <span className="char-count">{text.length}/300</span>
-                  <button className="add-btn" onClick={addNotice} disabled={!text.trim()}>
-                    <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-                      <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
-                    Post Notice
-                  </button>
-                </div>
-              </div>
+          <div className="header-right">
+            <div className="user-chip">
+              <div className="user-avatar">{user.avatar}</div>
+              <span>{user.username}</span>
+              <span style={{color:"var(--muted)", fontSize:11}}>· {user.role}</span>
             </div>
+            <button className="logout-btn" onClick={handleLogout}>Sign out</button>
           </div>
-        )}
-
+        </header>
+ 
         <main className="main">
-
-          {/* HOME BOARD */}
-          {page === "home" && (
-            <>
-              <div className="board-header">
-                <h2 className="board-title">All Notices</h2>
-                <span className="board-count">{filtered.length} of {notices.length}</span>
-              </div>
-              <Filters/>
-              <div className="board"><Board list={filtered}/></div>
-            </>
-          )}
-
-          {/* NOTICES PAGE */}
-          {page === "notices" && (
-            <div className="section-page">
-              <div className="board-header">
-                <h2 className="section-heading">All Notices</h2>
-                <span className="board-count">{notices.length} total</span>
-              </div>
-              <Filters/>
-              <div className="board"><Board list={filtered}/></div>
+          {/* Toolbar */}
+          <div className="toolbar">
+            <div className="toolbar-left">
+              {CATEGORIES.map(c => (
+                <button key={c} className={`cat-btn ${category === c ? "active" : ""}`} onClick={() => setCategory(c)}>{c}</button>
+              ))}
             </div>
-          )}
-
-          {/* ABOUT PAGE */}
-          {page === "about" && (
-            <div className="section-page">
-              <h2 className="section-heading">About Bulletin</h2>
-              <p className="section-body">
-                Bulletin is a lightweight digital notice board designed for teams, classrooms, and communities.
-                Post updates, share announcements, and keep everyone in the loop — no account needed.
-                Everything is stored locally in your browser.
-              </p>
-              <div className="about-grid">
-                {[
-                  { icon:"💾", title:"Persists Locally",    desc:"All notices are saved to localStorage and restored automatically on every visit.", ci:0 },
-                  { icon:"🏷️", title:"8 Tag Types",         desc:"Classify notices as General, Urgent, Info, Event, Reminder, Idea, Meeting, or Alert.", ci:1 },
-                  { icon:"⚡", title:"Instant Posting",     desc:"Use Cmd+Enter (or Ctrl+Enter) to post without leaving the keyboard.", ci:2 },
-                  { icon:"🎨", title:"Colour-coded Cards",  desc:"Every notice gets a unique colour palette, making the board vibrant and easy to scan.", ci:3 },
-                ].map(f => (
-                  <div className="about-card" key={f.title} style={{ background: ABOUT_BG[f.ci] }}>
-                    <div className="about-card-icon">{f.icon}</div>
-                    <div className="about-card-title">{f.title}</div>
-                    <div className="about-card-desc">{f.desc}</div>
+            {canEdit && <button className="add-btn" onClick={openAdd}>＋ Post Notice</button>}
+          </div>
+ 
+          {/* Grid */}
+          {visible.length === 0 ? (
+            <div className="empty">
+              <div className="empty-icon">🗒️</div>
+              <h3>No notices here</h3>
+              <p>There are no notices in this category yet.</p>
+            </div>
+          ) : (
+            <div className="notices-grid">
+              {visible.map((n, i) => (
+                <div
+                  key={n.id}
+                  className="notice-card"
+                  style={{ "--card-color": n.color, animationDelay: `${i * 60}ms` }}
+                >
+                  {n.pinned && <div className="notice-pin">📌</div>}
+                  <div className="notice-cat">{n.category}</div>
+                  <div className="notice-title">{n.title}</div>
+                  <div className="notice-body">{n.body}</div>
+                  <div className="notice-footer">
+                    <div className="notice-author">
+                      <div className="notice-author-dot">{n.author[0]}</div>
+                      <span>{n.author} · {n.date}</span>
+                    </div>
+                    {canEdit && (
+                      <div className="notice-actions">
+                        <button className="icon-btn" title={n.pinned ? "Unpin" : "Pin"} onClick={() => togglePin(n.id)}>{n.pinned ? "📍" : "📌"}</button>
+                        <button className="icon-btn" title="Edit" onClick={() => openEdit(n)}>✏️</button>
+                        <button className="icon-btn delete" title="Delete" onClick={() => handleDelete(n.id)}>🗑️</button>
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
           )}
         </main>
-
-        <footer className="footer">
-          Built with React · Data stored in localStorage · © {new Date().getFullYear()} Bulletin
-        </footer>
       </div>
+ 
+      {/* Modal */}
+      {showModal && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
+          <div className="modal">
+            <div className="modal-title">{editNotice ? "Edit Notice" : "Post a Notice"}</div>
+            <div className="form-row">
+              <label className="form-label">Title</label>
+              <input className="form-input" placeholder="Notice title" value={form.title} onChange={e => setForm(f => ({...f, title: e.target.value}))} />
+            </div>
+            <div className="form-row">
+              <label className="form-label">Category</label>
+              <select className="form-select" value={form.category} onChange={e => setForm(f => ({...f, category: e.target.value}))}>
+                {CATEGORIES.slice(1).map(c => <option key={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="form-row">
+              <label className="form-label">Message</label>
+              <textarea className="form-textarea" placeholder="Write the notice content..." value={form.body} onChange={e => setForm(f => ({...f, body: e.target.value}))} />
+            </div>
+            <div className="form-row">
+              <label className="form-label">Color Tag</label>
+              <div className="color-row">
+                {COLORS.map(c => (
+                  <div key={c} className={`color-swatch ${form.color === c ? "selected" : ""}`} style={{ background: c }} onClick={() => setForm(f => ({...f, color: c}))} />
+                ))}
+              </div>
+            </div>
+            <div className="form-row" style={{display:"flex", alignItems:"center", gap:10}}>
+              <input type="checkbox" id="pin" checked={form.pinned} onChange={e => setForm(f => ({...f, pinned: e.target.checked}))} />
+              <label htmlFor="pin" className="form-label" style={{margin:0, cursor:"pointer"}}>Pin this notice to top</label>
+            </div>
+            <div className="modal-actions">
+              <button className="btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
+              <button className="btn-primary" onClick={handleSave}>{editNotice ? "Save Changes" : "Post Notice"}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
+ 
