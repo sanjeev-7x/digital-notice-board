@@ -539,7 +539,7 @@ export default function App() {
         <header className="header">
           <div className="header-left">
             <div className="header-logo">📋</div>
-            <span className="header-title">NoticeBoardX</span>
+            <span className="header-title">NoticeBoard</span>
           </div>
           <div className="header-right">
             <div className="user-chip">
