@@ -495,7 +495,7 @@ export default function App() {
           <div className="login-card">
             <div className="login-logo">
               <div className="login-logo-icon">📋</div>
-              <span className="login-logo-text">NoticeBoardX</span>
+              <span className="login-logo-text">NoticeBoard</span>
             </div>
             <p className="login-sub">Sign in to access your digital notice board</p>
  
